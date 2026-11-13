@@ -52,6 +52,11 @@ def curve_report(
     """The success-by-budget curve of one system at chosen budgets."""
     grid = list(budgets) if budgets else default_grid(runs)
     curve = curve_for(runs)
+    if max(grid) > curve.max_budget:
+        raise ValueError(
+            f"no run used more than {fmt_budget(curve.max_budget)}, so the curve stops there; "
+            "`stepbudget at` scores larger limits with bounds"
+        )
     lo, hi, used = curve_interval(runs, grid, level, method, n_boot, seed)
     rows = []
     ended = np.sort([r.budget for r in runs])
