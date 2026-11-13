@@ -120,3 +120,34 @@ def test_bad_weights_and_level_are_rejected():
         success_curve([1, 2], [1, 0]).interval(1.5)
     with pytest.raises(ValueError):
         kaplan_meier([1, 2], [1, 2])
+
+
+def redistribute_to_the_right(budgets, events):
+    """Independent route to the same curve: pass each stopped run's mass to the later runs."""
+    order = sorted(range(len(budgets)), key=lambda i: (budgets[i], events[i] == CENSORED))
+    mass = {i: 1.0 / len(budgets) for i in order}
+    for pos, i in enumerate(order):
+        if events[i] != CENSORED:
+            continue
+        later = [j for j in order[pos + 1 :] if budgets[j] > budgets[i]]
+        if later:
+            share = mass[i] / len(later)
+            for j in later:
+                mass[j] += share
+            mass[i] = 0.0
+    return mass
+
+
+def test_curve_equals_redistribution_to_the_right_with_ties():
+    rng = np.random.default_rng(13)
+    for _ in range(20):
+        n = int(rng.integers(5, 60))
+        budgets = rng.integers(1, 12, size=n).tolist()
+        events = rng.integers(0, 3, size=n).tolist()
+        mass = redistribute_to_the_right(budgets, events)
+        c = success_curve(budgets, events)
+        for k, t in enumerate(c.times):
+            solved = sum(m for i, m in mass.items() if events[i] == SUCCESS and budgets[i] <= t)
+            ended = sum(m for i, m in mass.items() if events[i] == GAVE_UP and budgets[i] <= t)
+            assert c.success[k] == pytest.approx(solved, abs=1e-12)
+            assert c.gave_up[k] == pytest.approx(ended, abs=1e-12)
