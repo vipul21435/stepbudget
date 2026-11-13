@@ -346,7 +346,13 @@ def cost_markdown(name: str, rep: dict) -> str:
         f"{num(run['cost'])} per solved item. Interval: bootstrap over items "
         f"({rep['n_boot']} replicates, seed {rep['seed']})."
     )
-    return "\n".join([f"## {name}", "", table(header, rows), "", tail])
+    lines = [f"## {name}", "", table(header, rows), "", tail]
+    if "second_cost" in run:
+        lines.append(
+            f"Second budget as run: {num(run['second_spend'])} per item, "
+            f"{num(run['second_cost'])} per solved item."
+        )
+    return "\n".join(lines)
 
 
 def step_edges(runs: Sequence[Run], step: float | None) -> list[float]:
@@ -397,6 +403,7 @@ def _load(args: argparse.Namespace) -> list[Run]:
         outcome_col=args.outcome_col,
         budget_col=args.budget_col,
         exit_col=args.exit_col,
+        second_col=getattr(args, "second_col", None),
         limit_reasons=[r for r in args.limit_reasons.split(",") if r.strip()],
         limit=args.limit,
     )
@@ -552,6 +559,10 @@ def build_parser() -> argparse.ArgumentParser:
     _reader_options(p)
     p.add_argument("--system", action="append", help="system to report (repeatable; default all)")
     p.add_argument("--limits", type=float, nargs="+", help="limits to cost")
+    p.add_argument(
+        "--second-col",
+        help="a second budget column (cost in money, say) to total per solved item as run",
+    )
     p.set_defaults(func=_cmd_cost)
     return parser
 

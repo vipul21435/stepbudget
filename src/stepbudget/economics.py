@@ -71,7 +71,8 @@ def cost_of_success(
     that gave up or were stopped is charged to the successes. The interval is
     a percentile interval from a bootstrap over items. ``as_run`` is the plain
     total of the budgets used divided by the number of successes, under
-    whatever limits the runs actually had.
+    whatever limits the runs actually had; when the runs carry a second budget
+    (``Run.second``) its total per item and per success is reported there too.
     """
     grid = np.asarray(list(limits), dtype=float)
     curve = curve_for(runs)
@@ -103,4 +104,8 @@ def cost_of_success(
         "solved": wins / float(w.sum()),
         "cost": used / wins if wins > 0 else float("nan"),
     }
+    if all(r.second is not None for r in runs):
+        other = float(sum(wi * r.second for wi, r in zip(w, runs, strict=True)))
+        as_run["second_spend"] = other / float(w.sum())
+        as_run["second_cost"] = other / wins if wins > 0 else float("nan")
     return {"level": level, "n_boot": n_boot, "seed": seed, "as_run": as_run, "rows": rows}

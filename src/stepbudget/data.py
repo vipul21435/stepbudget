@@ -28,6 +28,7 @@ class Run:
     budget: float
     event: int
     exit_reason: str | None = None
+    second: float | None = None
 
 
 def parse_outcome(value: object) -> bool:
@@ -111,6 +112,7 @@ def read_runs(
     outcome_col: str = "outcome",
     budget_col: str = "budget",
     exit_col: str | None = "exit_reason",
+    second_col: str | None = None,
     limit_reasons: Iterable[str] = DEFAULT_LIMIT_REASONS,
     limit: float | None = None,
     default_system: str = "system",
@@ -118,8 +120,9 @@ def read_runs(
     """Read one run per row from a CSV file, a JSON-lines file or a JSON array of objects.
 
     ``budget_col`` names the column to use as the budget axis, so a file with
-    both steps and cost can be analysed on either. The system column and the
-    exit-reason column may be absent.
+    both steps and cost can be analysed on either. ``second_col`` names a
+    second budget column that is carried along on each run (``Run.second``)
+    for totals. The system column and the exit-reason column may be absent.
     """
     path = Path(path)
     limit_reasons = tuple(limit_reasons)
@@ -141,7 +144,17 @@ def read_runs(
         system = default_system if system is None or str(system) == "" else str(system)
         ok = parse_outcome(row[outcome_col])
         event = classify(ok, budget, reason, limit_reasons, limit)
-        runs.append(Run(str(row[item_col]), system, budget, event, reason))
+        second = None
+        if second_col:
+            try:
+                second = float(row[second_col])  # type: ignore[arg-type]
+            except (KeyError, TypeError, ValueError) as exc:
+                raise ValueError(
+                    f"{path}: row {n} has no numeric value in column {second_col!r}"
+                ) from exc
+            if not second >= 0 or second == float("inf"):
+                raise ValueError(f"{path}: row {n} has {second_col} {second}, expected >= 0")
+        runs.append(Run(str(row[item_col]), system, budget, event, reason, second))
     if not runs:
         raise ValueError(f"{path}: no runs")
     return runs

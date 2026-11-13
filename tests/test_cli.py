@@ -155,3 +155,25 @@ def test_repeated_runs_switch_to_the_bootstrap_and_refuse_the_analytic_interval(
     assert "bootstrap over items" in capsys.readouterr().out
     assert main(["curve", path, "--interval", "analytic"]) == 2
     assert main(["curve", path, "--level", "1.5", "--boot", "20"]) == 2
+
+
+def test_cost_totals_a_second_budget_column_as_run(tmp_path, capsys):
+    path = tmp_path / "two.csv"
+    path.write_text(
+        "item,system,outcome,budget,exit_reason,dollars\n"
+        "a,s,success,10,submitted,0.50\n"
+        "b,s,failure,30,limit reached,1.50\n"
+        "c,s,success,20,submitted,1.00\n"
+        "d,s,failure,5,error,0.20\n",
+        encoding="utf-8",
+    )
+    args = ["cost", str(path), "--limits", "30", "--boot", "20", "--second-col", "dollars"]
+    assert main(args + ["--format", "json"]) == 0
+    run = json.loads(capsys.readouterr().out)["s"]["as_run"]
+    assert run["cost"] == pytest.approx(65 / 2)
+    assert run["second_spend"] == pytest.approx(3.2 / 4)
+    assert run["second_cost"] == pytest.approx(3.2 / 2)
+    assert main(args) == 0
+    assert "Second budget as run: 0.8 per item, 1.6 per solved item." in capsys.readouterr().out
+    assert main(["cost", str(path), "--second-col", "nope"]) == 2
+    assert "nope" in capsys.readouterr().err
