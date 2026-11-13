@@ -30,8 +30,8 @@ def logrank(runs_a: Sequence[Run], runs_b: Sequence[Run]) -> dict:
         return {"chi2": 0.0, "p": 1.0, "observed_a": 0.0, "expected_a": 0.0}
     na = len(ta) - np.searchsorted(np.sort(ta), times, side="left")
     nb = len(tb) - np.searchsorted(np.sort(tb), times, side="left")
-    da = np.array([np.sum(ta[sa] == t) for t in times], dtype=float)
-    db = np.array([np.sum(tb[sb] == t) for t in times], dtype=float)
+    da = np.bincount(np.searchsorted(times, ta[sa]), minlength=len(times)).astype(float)
+    db = np.bincount(np.searchsorted(times, tb[sb]), minlength=len(times)).astype(float)
     n, d = na + nb, da + db
     expected = d * na / n
     spread = np.where(n > 1, d * (na / n) * (nb / n) * (n - d) / np.maximum(n - 1, 1), 0.0)
@@ -82,7 +82,8 @@ def compare(
     each drawn item brings all its runs of both systems, so the pairing and
     any repeated runs are kept. The result is the same for the same ``seed``.
     """
-    common = [i for i in dict.fromkeys(r.item for r in runs_a) if i in {r.item for r in runs_b}]
+    in_b = {r.item for r in runs_b}
+    common = [i for i in dict.fromkeys(r.item for r in runs_a) if i in in_b]
     if not common:
         raise ValueError("the two systems share no items")
     keep = set(common)
