@@ -98,3 +98,11 @@ def test_systems_select_and_bad_arguments():
         curve_interval(runs, [1], method="exact")
     with pytest.raises(ValueError):
         bootstrap_items(3, lambda c: c, n_boot=0)
+
+
+def test_analytic_interval_refuses_repeated_runs_and_empty_grid_is_empty():
+    runs = [Run("a", "s", 1, 1), Run("a", "s", 2, 2), Run("b", "s", 4, 1)]
+    with pytest.raises(ValueError, match="one run per item"):
+        curve_interval(runs, [2], method="analytic")
+    lo, hi, how = curve_interval(runs, [])
+    assert len(lo) == 0 and len(hi) == 0 and how == "bootstrap"

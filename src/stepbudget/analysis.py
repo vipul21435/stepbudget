@@ -153,17 +153,25 @@ def curve_interval(
 ) -> tuple[np.ndarray, np.ndarray, str]:
     """Pointwise interval for the success curve at ``budgets``.
 
-    ``method`` is ``"analytic"`` (delta-method variance, independent runs),
+    ``method`` is ``"analytic"`` (delta-method variance, one run per item),
     ``"bootstrap"`` (percentile interval, items resampled with their runs) or
     ``"auto"``, which uses the bootstrap only when some item has several runs.
     Returns the lower ends, the upper ends and the method used.
     """
     if method not in {"auto", "analytic", "bootstrap"}:
         raise ValueError("method must be auto, analytic or bootstrap")
+    repeats = has_repeats(runs)
     if method == "auto":
-        method = "bootstrap" if has_repeats(runs) else "analytic"
+        method = "bootstrap" if repeats else "analytic"
     grid = np.asarray(budgets, dtype=float)
+    if len(grid) == 0:
+        return np.array([]), np.array([]), method
     if method == "analytic":
+        if repeats:
+            raise ValueError(
+                "the analytic interval assumes one run per item; "
+                "some items have several runs, use the bootstrap"
+            )
         curve = curve_for(runs)
         pairs = [curve.interval_at(float(b), level) for b in grid]
         return np.array([p[0] for p in pairs]), np.array([p[1] for p in pairs]), method
