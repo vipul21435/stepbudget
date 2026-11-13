@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "stepbudget"
+version = "0.1.0"
+description = "Success rate of an agent as a function of its step or cost limit, with limit-reached runs treated as censored"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Vipul Raj Jha" }]
+keywords = ["agents", "evaluation", "survival-analysis", "censoring", "budget"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = ["numpy>=1.23"]
+
+[project.optional-dependencies]
+plot = ["matplotlib>=3.7"]
+dev = ["pytest>=7", "pytest-cov>=4", "ruff>=0.4", "lifelines>=0.27", "matplotlib>=3.7"]
+
+[project.scripts]
+stepbudget = "stepbudget.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/vipul21435/stepbudget"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/stepbudget"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]
