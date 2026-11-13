@@ -90,3 +90,31 @@ def test_bad_json_lines_are_reported(tmp_path, text):
     path.write_text(text, encoding="utf-8")
     with pytest.raises(ValueError, match="bad.jsonl:1"):
         read_runs(path)
+
+
+def test_json_array_and_byte_order_mark(tmp_path):
+    rows = [
+        {"item": "a", "outcome": "resolved", "budget": 3},
+        {"item": "b", "outcome": "unresolved", "budget": 9, "exit_reason": "limit"},
+    ]
+    array = tmp_path / "runs.json"
+    array.write_text(json.dumps(rows), encoding="utf-8")
+    assert [r.event for r in read_runs(array)] == [SUCCESS, CENSORED]
+    lines = tmp_path / "lines.json"
+    lines.write_text("\n".join(json.dumps(r) for r in rows), encoding="utf-8")
+    assert [r.event for r in read_runs(lines)] == [SUCCESS, CENSORED]
+    with_mark = tmp_path / "bom.csv"
+    with_mark.write_text("item,outcome,budget\na,true,2\n", encoding="utf-8-sig")
+    assert read_runs(with_mark)[0].item == "a"
+    broken = tmp_path / "broken.json"
+    broken.write_text("[{\"item\": 1, \"outcome\": 1, \"budget\": 1}, 2]", encoding="utf-8")
+    with pytest.raises(ValueError, match="entry 2"):
+        read_runs(broken)
+    broken.write_text("[{\"item\": 1},", encoding="utf-8")
+    with pytest.raises(ValueError, match="not valid JSON"):
+        read_runs(broken)
+
+
+def test_nan_outcome_is_an_error():
+    with pytest.raises(ValueError, match="nan"):
+        parse_outcome(float("nan"))

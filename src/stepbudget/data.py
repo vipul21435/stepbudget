@@ -35,6 +35,8 @@ def parse_outcome(value: object) -> bool:
     if isinstance(value, bool):
         return value
     if isinstance(value, (int, float)):
+        if value != value:
+            raise ValueError("cannot read outcome nan as success or failure")
         return value != 0
     word = str(value).strip().lower()
     if word in TRUE_WORDS:
@@ -71,8 +73,20 @@ def classify(
 
 def _rows(path: Path) -> Iterable[Mapping[str, object]]:
     suffix = path.suffix.lower()
+    if suffix == ".json":
+        text = path.read_text(encoding="utf-8-sig")
+        if text.lstrip().startswith("["):
+            try:
+                rows = json.loads(text)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"{path}: not valid JSON ({exc})") from exc
+            for n, row in enumerate(rows, 1):
+                if not isinstance(row, dict):
+                    raise ValueError(f"{path}: entry {n} is not a JSON object")
+                yield row
+            return
     if suffix in {".jsonl", ".ndjson", ".json"}:
-        with path.open(encoding="utf-8") as fh:
+        with path.open(encoding="utf-8-sig") as fh:
             for line_no, line in enumerate(fh, 1):
                 line = line.strip()
                 if not line:
@@ -85,7 +99,7 @@ def _rows(path: Path) -> Iterable[Mapping[str, object]]:
                     raise ValueError(f"{path}:{line_no}: expected a JSON object")
                 yield row
     else:
-        with path.open(encoding="utf-8", newline="") as fh:
+        with path.open(encoding="utf-8-sig", newline="") as fh:
             yield from csv.DictReader(fh)
 
 
@@ -101,7 +115,7 @@ def read_runs(
     limit: float | None = None,
     default_system: str = "system",
 ) -> list[Run]:
-    """Read one run per row from a CSV file or a JSON-lines file.
+    """Read one run per row from a CSV file, a JSON-lines file or a JSON array of objects.
 
     ``budget_col`` names the column to use as the budget axis, so a file with
     both steps and cost can be analysed on either. The system column and the
