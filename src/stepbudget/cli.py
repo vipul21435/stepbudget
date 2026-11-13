@@ -54,9 +54,8 @@ def curve_report(
     curve = curve_for(runs)
     lo, hi, used = curve_interval(runs, grid, level, method, n_boot, seed)
     rows = []
+    ended = np.sort([r.budget for r in runs])
     for b, low, high in zip(grid, lo, hi, strict=True):
-        idx = int(np.searchsorted(curve.times, b, side="right"))
-        at_risk = float(curve.at_risk[idx]) if idx < len(curve.times) else 0.0
         rows.append(
             {
                 "budget": b,
@@ -65,7 +64,7 @@ def curve_report(
                 "high": float(high),
                 "plain": curve.empirical_at(b),
                 "running": curve.running_at(b),
-                "at_risk_after": at_risk,
+                "runs_past": int(len(ended) - np.searchsorted(ended, b, side="right")),
             }
         )
     differ = np.flatnonzero(np.abs(curve.success - curve.empirical) > 1e-12)
@@ -118,10 +117,18 @@ def curve_markdown(name: str, rep: dict) -> str:
             pct_range(r["low"], r["high"]),
             pct(r["plain"]),
             pct(r["running"]),
+            str(r["runs_past"]),
         ]
         for r in rep["rows"]
     ]
-    header = ["budget", "solved within budget", f"{level} interval", "plain share", "still running"]
+    header = [
+        "budget",
+        "solved within budget",
+        f"{level} interval",
+        "plain share",
+        "still running",
+        "runs past budget",
+    ]
     how = "delta-method variance" if rep["interval"] == "analytic" else "bootstrap over items"
     tail = ["", f"Interval: {how}. {difference_note(rep)}"]
     return "\n".join(head + [table(header, rows)] + tail)
@@ -143,6 +150,7 @@ def at_report(
     wanted = [float(b) for b in budgets] + [f * top for f in fractions]
     if not wanted:
         wanted = [0.25 * top, 0.5 * top]
+    wanted = sorted(set(wanted))
     inside = [b for b in wanted if b <= top]
     lo, hi, used = curve_interval(runs, inside, level, method, n_boot, seed)
     bands = {b: (float(low), float(high)) for b, low, high in zip(inside, lo, hi, strict=True)}
@@ -401,7 +409,14 @@ def _cmd_curve(args: argparse.Namespace) -> str:
     if args.plot:
         from .plot import plot_curves
 
-        plot_curves({name: select(runs, name) for name in names}, args.plot, level=args.level)
+        plot_curves(
+            {name: select(runs, name) for name in names},
+            args.plot,
+            level=args.level,
+            seed=args.seed,
+            xlabel=args.xlabel or args.budget_col,
+            xmax=args.xmax,
+        )
     if args.format == "json":
         return to_json(reports)
     return "\n\n".join(curve_markdown(name, rep) for name, rep in reports.items())
@@ -487,6 +502,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--system", action="append", help="system to report (repeatable; default all)")
     p.add_argument("--budgets", type=float, nargs="+", help="budgets to report")
     p.add_argument("--plot", help="also write a chart of the curves here (needs matplotlib)")
+    p.add_argument("--xlabel", help="label of the chart's budget axis")
+    p.add_argument("--xmax", type=float, help="right end of the chart's budget axis")
     p.set_defaults(func=_cmd_curve)
 
     p = sub.add_parser("at", help="what a smaller or larger limit would have scored")

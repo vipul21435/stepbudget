@@ -19,7 +19,7 @@ def test_curve_markdown_on_example(capsys):
     assert main(["curve", EXAMPLE, "--budgets", "20", "40", "80"]) == 0
     out = capsys.readouterr().out
     assert "## alpha" in out and "## beta" in out
-    assert "| 40 | 54.2 % |" in out
+    assert "| 40 | 54.2 % | 44.8 to 62.6 % | 54.2 % | 25.8 % | 19 |" in out
     assert "stopped by the limit" in out
 
 
@@ -41,6 +41,7 @@ def test_curve_json_matches_hand_worked_table(tmp_path, capsys):
     assert rep["rows"][0]["success"] == pytest.approx(1 / 3)
     assert rep["rows"][1]["success"] == pytest.approx(7 / 12)
     assert rep["rows"][1]["plain"] == pytest.approx(0.5)
+    assert [r["runs_past"] for r in rep["rows"]] == [3, 1]
     assert rep["first_limit_budget"] == pytest.approx(3.0)
     assert rep["curves_differ_from"] == pytest.approx(4.0)
 
@@ -64,6 +65,10 @@ def test_at_json_default_fractions(capsys):
     assert main(["at", EXAMPLE, "--format", "json"]) == 0
     rep = json.loads(capsys.readouterr().out)
     assert [r["budget"] for r in rep["beta"]["rows"]] == pytest.approx([20.0, 40.0])
+    args = ["at", EXAMPLE, "--format", "json", "--budgets", "70", "30", "70", "--fractions", "0.5"]
+    assert main(args) == 0
+    again = json.loads(capsys.readouterr().out)
+    assert [r["budget"] for r in again["alpha"]["rows"]] == pytest.approx([30.0, 40.0, 70.0])
     assert all(r["kind"] == "exact" for r in rep["beta"]["rows"])
     assert rep["beta"]["as_run"]["solved"] == pytest.approx(88 / 120)
 
@@ -110,7 +115,7 @@ def test_marginal_and_cost(capsys):
 def test_curve_writes_a_chart(tmp_path, capsys):
     pytest.importorskip("matplotlib")
     out = tmp_path / "curves.png"
-    assert main(["curve", EXAMPLE, "--plot", str(out)]) == 0
+    assert main(["curve", EXAMPLE, "--plot", str(out), "--xlabel", "steps", "--xmax", "60"]) == 0
     assert out.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
 
 

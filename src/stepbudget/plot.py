@@ -19,6 +19,7 @@ def plot_curves(
     seed: int = 0,
     xlabel: str = "budget",
     title: str | None = None,
+    xmax: float | None = None,
 ) -> Path:
     """Draw each system's censoring-aware curve with its band and the plain share.
 
@@ -68,7 +69,7 @@ def plot_curves(
     ax.plot([], [], color="0.3", linestyle="--", linewidth=1.0, label="plain share (dashed)")
     ax.set_xlabel(xlabel)
     ax.set_ylabel("items solved within budget (%)")
-    ax.set_xlim(left=0)
+    ax.set_xlim(left=0, right=xmax)
     ax.set_ylim(bottom=0)
     ax.grid(True, alpha=0.3)
     ax.legend(frameon=False)
