@@ -9,7 +9,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from .data import Run
-from .estimators import GAVE_UP, SUCCESS, SuccessCurve, success_curve
+from .estimators import GAVE_UP, SUCCESS, SuccessCurve, spend, success_curve
 
 
 def systems(runs: Sequence[Run]) -> list[str]:
@@ -79,8 +79,8 @@ class Prepared:
             events == GAVE_UP,
         )
 
-    def success(self, item_counts: np.ndarray | None = None) -> np.ndarray:
-        """Cumulative incidence of success at ``times`` with items re-weighted."""
+    def curves(self, item_counts: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
+        """Success and still-running shares at ``times`` with items re-weighted."""
         w = self.base_weight
         if item_counts is not None:
             w = w * item_counts[self.item_index]
@@ -93,13 +93,21 @@ class Prepared:
         safe = np.where(n > 0, n, 1.0)
         running = np.cumprod(1.0 - (s + g) / safe)
         lag = np.concatenate(([1.0], running[:-1]))
-        return np.cumsum(lag * s / safe)
+        return np.cumsum(lag * s / safe), running
 
     def success_at(self, budgets: np.ndarray, item_counts: np.ndarray | None = None) -> np.ndarray:
         """Cumulative incidence of success at chosen budgets."""
-        f1 = self.success(item_counts)
+        f1, _ = self.curves(item_counts)
         idx = np.searchsorted(self.times, budgets, side="right") - 1
         return np.where(idx >= 0, f1[np.clip(idx, 0, None)], 0.0)
+
+    def cost_at(self, budgets: np.ndarray, item_counts: np.ndarray | None = None) -> np.ndarray:
+        """Expected budget spent per solved item at chosen limits (nan with no success)."""
+        f1, running = self.curves(item_counts)
+        idx = np.searchsorted(self.times, budgets, side="right") - 1
+        solved = np.where(idx >= 0, f1[np.clip(idx, 0, None)], 0.0)
+        spent = spend(self.times, running, budgets)
+        return np.divide(spent, solved, out=np.full(len(solved), np.nan), where=solved > 0)
 
 
 def bootstrap_items(

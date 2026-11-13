@@ -40,6 +40,27 @@ def _step(times: np.ndarray, values: np.ndarray, budget: ArrayLike | float, befo
     return float(out) if out.ndim == 0 else out
 
 
+def spend(times: np.ndarray, running: np.ndarray, limit: ArrayLike | float):
+    """Area under the still-running curve from 0 to ``limit``.
+
+    A run that is still going after budget ``u`` spends the next unit, so the
+    expected budget used per run under a limit ``b`` is
+    ``integral_0^b running(u) du``. With no run stopped before ``b`` this equals
+    the mean of ``min(budget used, b)`` exactly.
+    """
+    b = np.asarray(limit, dtype=float)
+    lag = np.concatenate(([1.0], running[:-1]))
+    prev = np.concatenate(([0.0], times[:-1]))
+    area = np.cumsum(lag * (times - prev))
+    idx = np.searchsorted(times, b, side="right") - 1
+    safe = np.clip(idx, 0, None)
+    base = np.where(idx >= 0, area[safe], 0.0)
+    start = np.where(idx >= 0, times[safe], 0.0)
+    height = np.where(idx >= 0, running[safe], 1.0)
+    out = base + height * (b - start)
+    return float(out) if out.ndim == 0 else out
+
+
 @dataclass(frozen=True)
 class EventTable:
     """Counts (or weights) at each distinct budget, in ascending order."""
@@ -195,6 +216,10 @@ class SuccessCurve:
         """Pointwise interval for the cumulative incidence of success at ``budget``."""
         lo, hi = self.interval(level)
         return float(_step(self.times, lo, budget, 0.0)), float(_step(self.times, hi, budget, 0.0))
+
+    def spend_at(self, limit: ArrayLike | float):
+        """Expected budget a run uses under ``limit``: the area under ``running``."""
+        return spend(self.times, self.running, limit)
 
     @property
     def first_censoring(self) -> float | None:
