@@ -33,7 +33,7 @@ def plot_curves(
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
     except ImportError as exc:  # pragma: no cover - exercised only without matplotlib
-        raise ValueError("the chart needs matplotlib: pip install 'stepbudget[plot]'") from exc
+        raise ValueError("the chart needs matplotlib: pip install matplotlib") from exc
 
     fig, ax = plt.subplots(figsize=(7.0, 4.2), dpi=120)
     for name, runs in by_system.items():
