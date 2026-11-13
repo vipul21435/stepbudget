@@ -177,3 +177,31 @@ def test_cost_totals_a_second_budget_column_as_run(tmp_path, capsys):
     assert "Second budget as run: 0.8 per item, 1.6 per solved item." in capsys.readouterr().out
     assert main(["cost", str(path), "--second-col", "nope"]) == 2
     assert "nope" in capsys.readouterr().err
+
+
+def test_compare_wording_without_a_crossover_and_default_budgets(tmp_path, capsys):
+    rows = [(f"i{k}", "quick", "success", 2 + k, "submitted") for k in range(8)]
+    rows += [(f"i{k}", "slow", "success", 12 + k, "submitted") for k in range(8)]
+    path = write_csv(tmp_path / "ahead.csv", rows)
+    assert main(["compare", path, "--boot", "50"]) == 0
+    out = capsys.readouterr().out
+    assert "No crossover: quick is ahead wherever the curves differ, up to budget 9." in out
+    same = [(f"i{k}", s, "success", 2 + k, "submitted") for k in range(8) for s in ("p", "q")]
+    path = write_csv(tmp_path / "same.csv", same)
+    assert main(["compare", path, "--boot", "50"]) == 0
+    assert "The curves never separate." in capsys.readouterr().out
+
+
+def test_marginal_wording_when_the_gain_is_still_high_and_uneven_last_step(capsys):
+    args = ["marginal", EXAMPLE, "--system", "beta", "--step", "30", "--threshold", "1e-6"]
+    assert main(args) == 0
+    out = capsys.readouterr().out
+    assert "| 60 to 80 |" in out
+    assert "The gain is still at or above 0.0001 per 100 items per unit at the end." in out
+
+
+def test_negative_second_budget_is_reported(tmp_path, capsys):
+    path = tmp_path / "neg.csv"
+    path.write_text("item,outcome,budget,dollars\na,true,3,-1\n", encoding="utf-8")
+    assert main(["cost", str(path), "--second-col", "dollars"]) == 2
+    assert "expected >= 0" in capsys.readouterr().err
