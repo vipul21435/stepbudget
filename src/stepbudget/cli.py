@@ -107,7 +107,8 @@ def curve_markdown(name: str, rep: dict) -> str:
         "",
         f"{c['runs']} runs on {c['items']} items: {c['success']} succeeded, "
         f"{c['gave_up']} ended unsolved before the limit, "
-        f"{c['limit_reached']} were stopped by the limit.",
+        f"{c['limit_reached']} ({pct(c['limit_reached'] / c['runs'])} of runs) "
+        "were stopped by the limit.",
         "",
     ]
     rows = [

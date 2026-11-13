@@ -49,3 +49,84 @@ def test_missing_file_and_unknown_system_exit_with_2(tmp_path, capsys):
     assert main(["curve", str(tmp_path / "nope.csv")]) == 2
     assert main(["curve", EXAMPLE, "--system", "gamma"]) == 2
     assert "gamma" in capsys.readouterr().err
+
+
+def test_at_reports_truncation_bounds_and_extrapolation(capsys):
+    assert main(["at", EXAMPLE, "--system", "alpha", "--budgets", "40", "60", "120"]) == 0
+    out = capsys.readouterr().out
+    assert "| 40 | 54.2 % | by truncation | 54.2 % | 54.2 % |" in out
+    assert "| 60 | 66.4 % | censoring-aware estimate | 61.7 % | 71.7 % |" in out
+    assert "| 120 |" in out and "| extrapolation | 62.5 % | 78.3 % | - |" in out
+    assert "As run: 62.5 % of items solved, 15.8 % stopped by the limit" in out
+
+
+def test_at_json_default_fractions(capsys):
+    assert main(["at", EXAMPLE, "--format", "json"]) == 0
+    rep = json.loads(capsys.readouterr().out)
+    assert [r["budget"] for r in rep["beta"]["rows"]] == pytest.approx([20.0, 40.0])
+    assert all(r["kind"] == "exact" for r in rep["beta"]["rows"])
+    assert rep["beta"]["as_run"]["solved"] == pytest.approx(88 / 120)
+
+
+def test_compare_markdown_and_json(capsys):
+    args = ["compare", EXAMPLE, "--budgets", "20", "80", "--boot", "200"]
+    assert main(args) == 0
+    out = capsys.readouterr().out
+    assert "## alpha against beta" in out
+    assert "Lead changes: alpha is ahead first, then beta from 63" in out
+    assert "Log-rank test" in out
+    assert main(args + ["--format", "json", "--a", "beta", "--b", "alpha"]) == 0
+    rep = json.loads(capsys.readouterr().out)
+    assert rep["a"] == "beta" and rep["items"] == 120
+    assert rep["rows"][0]["difference"] == pytest.approx(0.15 - 28 / 120)
+    assert rep["crossovers"]["changes"] == [{"budget": 63.0, "leader": "a"}]
+
+
+def test_compare_needs_names_when_the_file_has_other_than_two_systems(tmp_path, capsys):
+    path = write_csv(
+        tmp_path / "three.csv",
+        [("a", s, "success", 1, "submitted") for s in ("x", "y", "z")],
+    )
+    assert main(["compare", path]) == 2
+    assert "--a and --b" in capsys.readouterr().err
+
+
+def test_marginal_and_cost(capsys):
+    assert main(["marginal", EXAMPLE, "--system", "alpha", "--step", "10"]) == 0
+    out = capsys.readouterr().out
+    assert "| 20 to 30 | +22.50 points | 2.25 |" in out
+    assert "From budget 70 on" in out
+    assert main(["marginal", EXAMPLE, "--format", "json", "--threshold", "0.0"]) == 0
+    rep = json.loads(capsys.readouterr().out)
+    assert rep["alpha"]["below_threshold_from"] is None
+    assert main(["cost", EXAMPLE, "--limits", "40", "80", "--boot", "100"]) == 0
+    out = capsys.readouterr().out
+    assert "| 40 | 54.2 % | 25.44 | 46.97 |" in out
+    assert main(["cost", EXAMPLE, "--format", "json", "--boot", "50"]) == 0
+    rep = json.loads(capsys.readouterr().out)
+    assert rep["beta"]["as_run"]["cost"] == pytest.approx(rep["beta"]["rows"][-1]["cost"])
+
+
+def test_curve_writes_a_chart(tmp_path, capsys):
+    pytest.importorskip("matplotlib")
+    out = tmp_path / "curves.png"
+    assert main(["curve", EXAMPLE, "--plot", str(out)]) == 0
+    assert out.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_chart_with_repeated_runs_uses_the_bootstrap_band(tmp_path):
+    pytest.importorskip("matplotlib")
+    from stepbudget.data import Run
+    from stepbudget.plot import plot_curves
+
+    runs = [Run(f"i{k % 20}", "s", float(1 + (k * 7) % 30), k % 3) for k in range(60)]
+    out = plot_curves({"s": runs}, tmp_path / "c.png", n_boot=30, title="t", xlabel="steps")
+    assert out.stat().st_size > 1000
+
+
+def test_bad_step_and_default_grids(capsys):
+    assert main(["marginal", EXAMPLE, "--step", "-1"]) == 2
+    assert main(["curve", EXAMPLE, "--format", "json"]) == 0
+    rep = json.loads(capsys.readouterr().out)
+    assert len(rep["alpha"]["rows"]) == 10
+    assert rep["alpha"]["rows"][-1]["budget"] == pytest.approx(80.0)
