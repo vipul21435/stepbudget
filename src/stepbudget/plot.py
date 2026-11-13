@@ -72,9 +72,9 @@ def plot_curves(
     ax.set_xlim(left=0, right=xmax)
     ax.set_ylim(bottom=0)
     ax.grid(True, alpha=0.3)
-    ax.legend(frameon=False)
+    ax.legend(frameon=False, loc="lower center", bbox_to_anchor=(0.5, 1.0), ncol=2)
     if title:
-        ax.set_title(title)
+        fig.suptitle(title)
     fig.tight_layout()
     out = Path(path)
     fig.savefig(out)
