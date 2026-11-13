@@ -14,7 +14,7 @@ TRUE_WORDS = frozenset(
     {"1", "true", "t", "yes", "y", "success", "solved", "resolved", "pass", "passed"}
 )
 FALSE_WORDS = frozenset(
-    {"0", "false", "f", "no", "n", "failure", "fail", "failed", "unsolved", "unresolved", ""}
+    {"0", "false", "f", "no", "n", "failure", "fail", "failed", "unsolved", "unresolved"}
 )
 DEFAULT_LIMIT_REASONS = ("limit reached", "limit", "limit_reached", "max_steps", "timeout")
 

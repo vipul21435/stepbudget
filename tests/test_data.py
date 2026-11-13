@@ -22,7 +22,7 @@ def test_outcome_true(value):
     assert parse_outcome(value) is True
 
 
-@pytest.mark.parametrize("value", [False, 0, "0", "false", "Failure", "", "unresolved"])
+@pytest.mark.parametrize("value", [False, 0, "0", "false", "Failure", "unresolved"])
 def test_outcome_false(value):
     assert parse_outcome(value) is False
 
@@ -30,6 +30,9 @@ def test_outcome_false(value):
 def test_outcome_unknown_word_is_an_error():
     with pytest.raises(ValueError, match="maybe"):
         parse_outcome("maybe")
+    # an empty cell is not silently a failure
+    with pytest.raises(ValueError, match="cannot read outcome"):
+        parse_outcome("  ")
 
 
 def test_read_csv_with_custom_columns_and_limit(tmp_path):
@@ -75,6 +78,7 @@ def test_read_json_lines_without_system_or_exit_reason(tmp_path):
         ("item,outcome,budget\na,true,inf\n", "finite value"),
         ("item,outcome,budget\na,true,nan\n", "finite value"),
         ("item,outcome,budget\na,perhaps,3\n", "perhaps"),
+        ("item,outcome,budget\na,,3\n", "cannot read outcome"),
     ],
 )
 def test_bad_csv_rows_are_reported(tmp_path, text, message):
