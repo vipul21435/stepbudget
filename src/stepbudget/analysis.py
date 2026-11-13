@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from collections import Counter
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -135,8 +136,10 @@ def bootstrap_items(
 def percentile_interval(samples: np.ndarray, level: float = 0.95) -> tuple[np.ndarray, np.ndarray]:
     """Percentile interval over bootstrap rows, ignoring undefined replicates."""
     tail = (1.0 - level) / 2.0
-    lo = np.nanquantile(samples, tail, axis=0)
-    hi = np.nanquantile(samples, 1.0 - tail, axis=0)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)  # a column with no defined replicate
+        lo = np.nanquantile(samples, tail, axis=0)
+        hi = np.nanquantile(samples, 1.0 - tail, axis=0)
     return lo, hi
 
 
